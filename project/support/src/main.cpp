@@ -7,20 +7,10 @@
 #include <mutex>
 #include <fstream>
 #include <iomanip>
-#include <ctime>
 #include <sstream>
 
 // 로그 메시지를 작성하고 파일에 기록하는 함수
-void logMessage(std::ofstream& log_file, const std::string& message) {
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-
-    std::tm now_tm = *std::localtime(&now_time_t);
-    log_file << "[" << std::put_time(&now_tm, "%Y%m%d %H:%M:%S")
-             << '.' << std::setw(3) << std::setfill('0') << now_ms.count() << "] "
-             << message << std::endl;
-}
+//void logMessage(std::ofstream& log_file, const std::string& message);
 
 void inputThread(std::atomic<bool>& running, std::array<uint8_t, 3>& data, std::mutex& data_mutex, std::ofstream& log_file) {
     logMessage(log_file, "Initial data: " + std::to_string(data[0]) + " " + std::to_string(data[1]) + " " + std::to_string(data[2]));
@@ -54,8 +44,7 @@ void broadcastThread(UdpServer& server, const std::array<uint8_t, 3>& data, std:
         int interval;
         {
             std::lock_guard<std::mutex> guard(data_mutex);
-            server.sendBroadcast(data);
-            logMessage(log_file, "Broadcast sent: " + std::to_string(data[0]) + " " + std::to_string(data[1]) + " " + std::to_string(data[2]));
+            server.sendBroadcast(data, log_file);
             interval = static_cast<int>(data[2]) * 10;  // 세 번째 바이트를 주기로 사용 10ms 단위
         }
 
@@ -97,7 +86,8 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        UdpServer server("eth0");
+        std::vector<std::string> interfaces = {"eth0", "eth1"};
+        UdpServer server(interfaces);
         std::atomic<bool> running(true);
         std::mutex data_mutex;
 
